@@ -1,0 +1,200 @@
+# x-app:
+#   image: escriptorium:latest
+#   volumes:
+#     - $PWD/app/homepage
+
+services:
+  web: &web
+    restart: always
+    # environment:
+    #   - CUSTOM_HOME=True
+    #   - CUSTOM_CONTRIBUTORS=True
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == frontend0
+
+  channelserver:
+    restart: always
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == frontend0
+
+  db:
+    restart: always
+    # ports:
+    #   - 127.0.0.1:5432:5432
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == db0
+
+  redis:
+    restart: always
+    # ports:
+    #   - 127.0.0.1:6379:6379
+
+  # elasticsearch:
+  #   restart: always
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+  #   environment:
+  #     - cluster.name=docker-cluster
+  #     - bootstrap.memory_lock=true
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #     - discovery.type=single-node
+  #   volumes:
+  #     - esdata:/usr/share/elasticsearch/data
+
+  nginx:
+    restart: always
+    ports:
+      - "80:80"
+    # - "443:443"
+    # volumes:
+    #   - type: bind
+    #     source: $PWD/nginx/ssl.conf
+    #     target: /etc/nginx/conf.d/nginx.conf
+    #   - type: bind
+    #     source: $PWD/nginx/ssl_certificates.conf
+    #     target: /etc/nginx/conf.d/ssl_certificates.conf
+    #   - $PWD/nginx/certs/:/etc/certs/
+
+  flower:
+    restart: always
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == frontend0
+
+  celery-main: &celery-main
+    restart: always
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == compute0
+    #   resources:
+    #     limits:
+    #       cpus: '6'
+    #       memory: 15g
+    #     reservations:
+    #       memory: 4g
+
+  celery-low-priority:
+    restart: always
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.hostname == compute1
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 15g
+    #     reservations:
+    #       memory: 1g
+
+  celery-gpu:
+    shm_size: '3gb'
+    runtime: nvidia
+    environment:
+      - KRAKEN_TRAINING_DEVICE=cuda:0
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    # deploy:
+    #   mode: replicated
+    #   replicas: 1
+    #   placement:
+    #     constraints:
+    #       - node.labels.type == gpu
+    #   resources:
+    #     limits:
+    #       cpus: '6'
+    #       memory: 15g
+    #     reservations:
+    #       memory: 1g
+    #       devices:
+    #         - capabilities:
+    #           - gpu
+
+  # celery-gpu2:
+  #   <<: *celery-gpu
+  #   environment:
+  #     - KRAKEN_TRAINING_DEVICE=cuda:1
+
+  # celery-jvm:
+  #   image: registry.gitlab.com/scripta/escriptorium:latest
+  #   build:
+  #     context: .
+  #   env_file: variables.env
+  #   volumes:
+  #     - static:/usr/src/app/static
+  #     - media:/usr/src/app/media
+  #   command: "celery -A escriptorium worker -l INFO -E -Ofair --prefetch-multiplier 1 -Q jvm -c 1 --max-tasks-per-child=1"
+
+  # celerybeat:
+  #   restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - 9090:9090
+
+  alertmanager:
+    image: prom/alertmanager:v0.18.0
+    deploy:
+      replicas: 1
+    volumes:
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./prometheus/email.tmpl:/etc/alertmanager/email.tmpl
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--log.level=debug'
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points="^/(sys|proc|dev|host|etc)($|/)"'
+    ports:
+      - 9100:9100
+
+volumes:
+#   static:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       o: 'bind'
+#       device: $PWD/static/
+  prometheus_data: {}
+#   media:
+#     driver: local
+#     driver_opts:
+#       type: none
+#       o: 'bind'
+#       device: $PWD/media/
