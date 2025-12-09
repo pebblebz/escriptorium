@@ -69,7 +69,8 @@ services:
     <<: *app
     image: escriptorium-final
     environment:
-      - KRAKEN_TRAINING_DEVICE=cpu
+      - KRAKEN_TRAINING_DEVICE=gpu
+      - KRAKEN_TRAINING_LOAD_THREADS=0
     command: "celery -A escriptorium worker -l INFO -E -Ofair --prefetch-multiplier 1 -Q gpu -c 1 --max-tasks-per-child=1"
     shm_size: '3gb'
 
