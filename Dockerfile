@@ -1,11 +1,11 @@
-FROM docker.io/library/node:12-alpine as frontend
+FROM docker.io/library/node:12-alpine AS frontend
 
 WORKDIR /build
 COPY ./front /build
 RUN npm ci && npm run production
 
 # Pull official base image
-FROM registry.gitlab.com/scripta/escriptorium/base:dj-solo
+FROM registry.gitlab.com/scripta/escriptorium/base:dj-solo AS base
 
 # try to autodetect number of cpus available
 # ENV NGINX_WORKER_PROCESSES auto
@@ -32,4 +32,9 @@ COPY ./app/contributors /usr/src/app/contributors
 COPY --from=frontend /build/dist /usr/src/app/front
 
 # run entrypoint.sh
-ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+# ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+
+#Remove baked entrypoint
+FROM base AS final
+ENTRYPOINT []
+CMD ["celery", "-A", "escriptorium", "worker", "-Q", "gpu"]

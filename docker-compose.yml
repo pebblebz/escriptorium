@@ -57,6 +57,7 @@ services:
 
   celery-live:
     <<: *app
+    image: escriptorium-final
     command: "celery -A escriptorium worker -l INFO -E -Ofair --prefetch-multiplier 1 -Q live -c ${CELERY_LIVE_CONC:-10} --max-tasks-per-child=10"
 
   celery-low-priority:
@@ -66,8 +67,10 @@ services:
 
   celery-gpu: &celery-gpu
     <<: *app
+    image: escriptorium-final
     environment:
-      - KRAKEN_TRAINING_DEVICE=cpu
+      - KRAKEN_TRAINING_DEVICE=gpu
+      - KRAKEN_TRAINING_LOAD_THREADS=0
     command: "celery -A escriptorium worker -l INFO -E -Ofair --prefetch-multiplier 1 -Q gpu -c 1 --max-tasks-per-child=1"
     shm_size: '3gb'
 

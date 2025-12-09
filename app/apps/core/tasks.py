@@ -271,15 +271,20 @@ def segtrain(model_pk=None, part_pks=[], document_pk=None, task_group_pk=None, u
         evaluation_data = make_segmentation_training_data(qs[:partition])
 
         accelerator, device = _to_ptl_device(getattr(settings, 'KRAKEN_TRAINING_DEVICE', 'cpu'))
+        safe_hparams = dict(SEGMENTATION_HYPER_PARAMS)
+        safe_hparams['batch_size'] = 2
+        safe_hparams['learning_rate'] = 0.0005
+
 
         LOAD_THREADS = getattr(settings, 'KRAKEN_TRAINING_LOAD_THREADS', 0)
         AMP_MODE = getattr(settings, 'KRAKEN_TRAINING_PRECISION', '32')
+        LOAD_THREADS=0
 
         logger.info(f'Starting segmentation training on {accelerator}/{device} '
                     f'(precision: {AMP_MODE}, workers: {LOAD_THREADS}) with '
                     f'{len(training_data)} files')
 
-        kraken_model = SegmentationModel(SEGMENTATION_HYPER_PARAMS,
+        kraken_model = SegmentationModel(safe_hparams,
                                          output=os.path.join(model_dir, 'version'),
                                          # spec=spec,
                                          model=load,
